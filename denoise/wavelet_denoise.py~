@@ -1,0 +1,33 @@
+__author__ = 'kanaan'
+
+from nipype.pipeline.engine import Workflow, Node
+import nipype.interfaces.utility as util
+import nipype.interfaces.fsl as fsl
+from nipype.interfaces.afni import preprocess
+from nipype.interfaces.base import CommandLine
+import subprocess
+
+def WaveletDespike():
+
+    flow  = Workflow('anat2mni')
+
+    inputnode  = Node(util.IdentityInterface(fields=['func_mni']),
+                     name = 'inputnode')
+
+    outputnode = Node(util.IdentityInterface(fields=['func_despike']),
+                     name = 'outputnode')
+
+
+    despike = Node(CommandLine(), name = 'wavelet_despike')
+
+
+    matlab_command = ['matlab',
+                      '-nodesktop' ,
+                      '-nosplash',
+                      '-nojvm',
+                      '-r "WaveletDespike((\'%s\',\'rest\', \'wavelet\', \'la8\', \'LimitRAM\', \'5\') ; quit;"' %(func_mni)]
+
+    matlab_command = ['matlab','-nodesktop' ,'-nosplash', '-nojvm','-r "RDA_TO_NIFTI(\'%s\', \'%s\', \'%s\', \'%s\') ; quit;"' %(T1Path, T1Image, SVS_path, SVS_file)]
+    subprocess.call(matlab_command)
+
+

@@ -1,0 +1,12 @@
+executable = /usr/bin/python
+arguments = /scr/sambesi1/workspace/Projects/GTS/REST/pipeline_0001_reconall.py $(Process)
+universe = vanilla
+output = /scr/sambesi1/workspace/Projects/GTS/REST/condor/logs/reconall/pipe_0000controlsbx_out_$(Process).txt
+error = /scr/sambesi1/workspace/Projects/GTS/REST/condor/logs/reconall/pipe_0000controlsbx_error_$(Process).txt
+log = /scr/sambesi1/workspace/Projects/GTS/REST/condor/logs/reconall/pipe_0000controlsbx_log_$(Process).txt
+getenv = True
+request_memory = 4000
+request_cpus = 1
+notify_user = amadeus.kanaan@gmail.com
+queue 1
+
