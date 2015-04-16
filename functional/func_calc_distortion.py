@@ -21,7 +21,7 @@ def func_calc_disco_warp():
           outputnode.fieldcoef          # file containing the field coefficients
 
     '''
-    datain     = '/scr/sambesi1/workspace/Projects/GTS/REST/functional/datain.txt'
+    datain     = '/scr/sambesi1/workspace/Projects/GluREST/functional/datain.txt'
 
     #define worflow
     flow       = Workflow('func_distortion_correction')
