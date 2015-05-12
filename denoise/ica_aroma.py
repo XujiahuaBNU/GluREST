@@ -204,7 +204,10 @@ def ica_aroma_denoise(fslDir, inFile, mask, dim, TR, mc, denType):
 			corMatrix = np.concatenate((cor_sq,cor_nonsq),axis=1)
 
 			# Get maximum temporal correlation for every IC
-			maxTC[i,:]=corMatrix.max(axis=1)
+			# maxTC[i,:]=corMatrix.max(axis=1) 		  #v0.2
+			corMatrixAbs = np.abs(corMatrix)          #v0.2
+			maxTC[i,:] = corMatrixAbs.max(axis=1)     #v0.2
+
 
 		# Get the mean maximum correlation over all random splits
 		maxRPcorr = maxTC.mean(axis=0)
@@ -237,8 +240,9 @@ def ica_aroma_denoise(fslDir, inFile, mask, dim, TR, mc, denType):
 		FT=np.loadtxt(melFTmix)
 
 		# Determine which frequencies are associated with every row in the melodic_FTmix file  (assuming the rows range from 0Hz to Nyquist)
-		step = Ny / FT.shape[0]
-		f = np.arange(step,Ny,step)
+		#step = Ny / FT.shape[0]      V0.2
+		# f = np.arange(step,Ny,step) V0.2
+		f = Ny*(np.array(range(1,FT.shape[0]+1)))/(FT.shape[0]) #V0.3
 
 		# Only include frequencies higher than 0.01Hz
 		fincl = np.squeeze(np.array(np.where( f > 0.01 )))
@@ -464,7 +468,8 @@ def ica_aroma_denoise(fslDir, inFile, mask, dim, TR, mc, denType):
 
 		if check==1:
 			# Put IC indices into a char array
-			denIdxStr = np.char.mod('%i',denIdx)
+			#denIdxStr = np.char.mod('%i',denIdx)
+			denIdxStr = np.char.mod('%i',(denIdx+1))
 
 			# Non-aggressive denoising of the data using fsl_regfilt (partial regression), if requested
 			if (denType == 'nonaggr') or (denType == 'both'):
