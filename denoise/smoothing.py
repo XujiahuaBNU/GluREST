@@ -6,7 +6,7 @@ def smooth_data():
     import nipype.interfaces.utility as util
     import nipype.interfaces.fsl as fsl
 
-    flow        = Workflow('func_smoothed')
+    flow        = Workflow('func2mni_preprocessed_fwhm')
 
     inputnode   = Node(util.IdentityInterface(fields=['func_data']),
                        name = 'inputnode')
@@ -14,9 +14,9 @@ def smooth_data():
     outputnode  =  Node(util.IdentityInterface(fields=['func_smoothed']),
                        name = 'outputnode')
 
-    smooth      = Node(interface=fsl.Smooth())
-    smooth.inputs.fwhm      = 4
-
+    smooth      = Node(interface=fsl.Smooth(), name='func_smooth_fwhm_4')
+    smooth.inputs.fwhm                 = 4.0
+    smooth.terminal_output             = 'file'
 
     flow.connect(inputnode, 'func_data'      , smooth      , 'in_file'    )
     flow.connect(smooth,    'smoothed_file'  , outputnode  , 'func_smoothed'   )

@@ -174,45 +174,74 @@ def calc_compcor_components(data, nComponents, wm_sigs, csf_sigs):
 
     return U[:,:nComponents]
 
-def erode_mask(data):
-    import numpy as np
-    mask = data != 0
-    eroded_mask = np.zeros_like(data, dtype='bool')
-    max_x, max_y, max_z = data.shape
-    x,y,z = np.where(data != 0)
-    for i in range(x.shape[0]):
-        if (max_x-1) == x[i] or \
-           (max_y-1) == y[i] or \
-           (max_z-1) == z[i] or \
-           x[i] == 0 or \
-           y[i] == 0 or \
-           z[i] == 0:
-            eroded_mask[x[i],y[i],z[i]] = False
-        else:
-            eroded_mask[x[i],y[i],z[i]] = mask[x[i], y[i], z[i]] * \
-                                          mask[x[i] + 1, y[i], z[i]] * \
-                                          mask[x[i], y[i] + 1, z[i]] * \
-                                          mask[x[i], y[i], z[i] + 1] * \
-                                          mask[x[i] - 1, y[i], z[i]] * \
-                                          mask[x[i], y[i] - 1, z[i]] * \
-                                          mask[x[i], y[i], z[i] - 1]
 
-    eroded_data = np.zeros_like(data)
-    eroded_data[eroded_mask] = data[eroded_mask]
 
-    return eroded_data
 
 def extract_tissue_data(data_file,
                         wm_seg_file,
                         csf_seg_file,
                         gm_seg_file):
 
-    ventricles_mask_file = '/scr/sambesi1/Software/CPAC_RESOURCES/Harvard_Oxford/HarvardOxford-lateral-ventricles-thr25-2mm.nii.gz'
+    #######
+    def safe_shape(*vol_data):
+        """
+        Checks if the volume (first three dimensions) of multiple ndarrays
+        are the same shape.
+
+        Parameters
+        ----------
+        vol_data0, vol_data1, ..., vol_datan : ndarray
+            Volumes to check
+
+        Returns
+        -------
+        same_volume : bool
+            True only if all volumes have the same shape.
+        """
+        same_volume = True
+
+        first_vol_shape = vol_data[0].shape[:3]
+        for vol in vol_data[1:]:
+            same_volume &= (first_vol_shape == vol.shape[:3])
+
+        return same_volume
+
+    def erode_mask(data):
+        import numpy as np
+        mask = data != 0
+        eroded_mask = np.zeros_like(data, dtype='bool')
+        max_x, max_y, max_z = data.shape
+        x,y,z = np.where(data != 0)
+        for i in range(x.shape[0]):
+            if (max_x-1) == x[i] or \
+               (max_y-1) == y[i] or \
+               (max_z-1) == z[i] or \
+               x[i] == 0 or \
+               y[i] == 0 or \
+               z[i] == 0:
+                eroded_mask[x[i],y[i],z[i]] = False
+            else:
+                eroded_mask[x[i],y[i],z[i]] = mask[x[i], y[i], z[i]] * \
+                                              mask[x[i] + 1, y[i], z[i]] * \
+                                              mask[x[i], y[i] + 1, z[i]] * \
+                                              mask[x[i], y[i], z[i] + 1] * \
+                                              mask[x[i] - 1, y[i], z[i]] * \
+                                              mask[x[i], y[i] - 1, z[i]] * \
+                                              mask[x[i], y[i], z[i] - 1]
+
+        eroded_data = np.zeros_like(data)
+        eroded_data[eroded_mask] = data[eroded_mask]
+
+        return eroded_data
+
+    ######
+
+    ventricles_mask_file = '/scr/sambesi1/workspace/Projects/GluREST/denoise/HarvardOxford-lateral-ventricles-thr25-2mm.nii.gz'
     import numpy as np
     import nibabel as nb
     import os
-    from CPAC.nuisance import erode_mask
-    from CPAC.utils import safe_shape
+    #from CPAC.nuisance import erode_mask
+    #from CPAC.utils import safe_shape
 
     try:
         data = nb.load(data_file).get_data().astype('float64')
