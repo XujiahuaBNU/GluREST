@@ -35,7 +35,7 @@ def func_calc_disco_warp():
                                                        'func_disco']), name = 'outputnode')
     # define nodes
     list_blips                    =  Node(util.Merge(2),               name = 'blips_list')
-    make_blips                    = Node(fsl.Merge(),                  name = 'blips_merged')
+    make_blips                    =  Node(fsl.Merge(),                 name = 'blips_merged')
     make_blips.inputs.dimension   = 't'
     make_blips.inputs.output_type = 'NIFTI_GZ'
 
