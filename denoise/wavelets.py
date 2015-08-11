@@ -42,7 +42,7 @@ def matlab_despike_command(func):
     matlab_command = ['matlab',
                       '-nodesktop' ,
                       '-nosplash',
-          '-r "WaveletDespike(\'%s\',\'%s/rest_dn\', \'wavelet\', \'d4\', \'LimitRAM\', 10) ; quit;"' %(func, cur_dir)]
+          '-r "WaveletDespike(\'%s\',\'%s/rest_dn\', \'wavelet\', \'d4\', \'LimitRAM\', 17) ; quit;"' %(func, cur_dir)]
 
     print ''
     print 'Running matlab through python...........Bitch Please....'

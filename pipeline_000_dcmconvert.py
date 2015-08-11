@@ -184,4 +184,7 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
     print '========================================================================================'
 
 if __name__ == "__main__":
-    convert_scanner_data(controls_a, afsdir_a, controls_outdir_a)
+    convert_scanner_data(controls_a, afsdir_a, controls_datadir_a)
+    convert_scanner_data(controls_b, afsdir_b, controls_datadir_b)
+    convert_scanner_data(patients_a, afsdir_a, patients_datadir_a)
+    convert_scanner_data(patients_b, afsdir_b, patients_datadir_b)

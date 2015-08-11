@@ -2,10 +2,10 @@ __author__ = 'kanaan' '26.11.2014'
 
 
 from nipype.pipeline.engine import Workflow, Node, MapNode
-import nipype.interfaces.utility as util
 from nipype.interfaces.afni import preprocess
-import nipype.interfaces.fsl as fsl
 from nipype.interfaces.ants import N4BiasFieldCorrection
+import nipype.interfaces.utility as util
+import nipype.interfaces.fsl as fsl
 
 def func_equilibrate():
     '''
@@ -54,88 +54,53 @@ def func_equilibrate():
     func_deoblique                    = Node(interface=preprocess.Refit(),       name = 'func_deoblique')
     func_deoblique.inputs.deoblique   = True
 
-    # 4. split functional frames
-    func_split                         = Node(interface = fsl.Split(), name = 'func_split')
-    func_split.inputs.dimension        = 't'
-    func_split.inputs.out_base_name    = 'split'
-
-    #5. bias field correction
-    func_biasfield                     = MapNode(interface=N4BiasFieldCorrection(), name = 'func_biasfield', iterfield = ['input_image'])
-
-    #6. merge
-    func_merge                           = Node(interface = fsl.Merge(), name = 'func_biasfield_merge')
-    func_merge.inputs.dimension          = 't'
-    func_merge.inputs.output_type        = 'NIFTI'
-
-    ##################################
-    se_rpi                            = Node(interface = preprocess.Resample(),  name = 'se_rpi')
-    se_rpi.inputs.orientation         = 'RPI'
-    se_rpi.inputs.outputtype          = 'NIFTI_GZ'
-
-    se_deoblique                      = Node(interface=preprocess.Refit(),       name = 'se_deoblique')
-    se_deoblique.inputs.deoblique     = True
-
-    # split functional frames
-    se_split                         = Node(interface = fsl.Split(), name = 'se_split')
-    se_split.inputs.dimension        = 't'
-    se_split.inputs.out_base_name    = 'split'
-
-    se_biasfield                     = MapNode(interface=N4BiasFieldCorrection(), name = 'se_biasfield', iterfield = ['input_image'])
-
-    se_merge                           = Node(interface = fsl.Merge(), name = 'se_biasfield_merge')
-    se_merge.inputs.dimension          = 't'
-    se_merge.inputs.output_type        = 'NIFTI'
-
-    ##################################
-
-    seinv_rpi                         = Node(interface= preprocess.Resample(),   name = 'seinv_rpi')
-    seinv_rpi.inputs.orientation      = 'RPI'
-    seinv_rpi.inputs.outputtype       = 'NIFTI_GZ'
-
-    seinv_deoblique                   = Node(interface=preprocess.Refit(),      name = 'seinv_deoblique')
-    seinv_deoblique.inputs.deoblique  = True
-
-    # split functional frames
-    seinv_split                         = Node(interface = fsl.Split(), name = 'seinv_split')
-    seinv_split.inputs.dimension        = 't'
-    seinv_split.inputs.out_base_name    = 'split'
-
-    seinv_biasfield                   = MapNode(interface=N4BiasFieldCorrection(), name = 'seinv_biasfield', iterfield = ['input_image'])
-
-    seinv_merge                           = Node(interface = fsl.Merge(), name = 'seinv_biasfield_merge')
-    seinv_merge.inputs.dimension          = 't'
-    seinv_merge.inputs.output_type        = 'NIFTI'
+    flow.connect(inputnode           ,   'verio_func'       ,  remove_trs          ,  'in_file_a'             )
+    flow.connect(remove_trs          ,   'out_file'         ,  func_rpi            ,  'in_file'               )
+    flow.connect(func_rpi            ,   'out_file'         ,  func_deoblique      ,  'in_file'               )
+    flow.connect(func_deoblique      ,   'out_file'         ,  outputnode          ,  'analyze_func'          )
 
 
-    ##################################
+    ###########################################################################################################
+    ###########################################################################################################
+    # se to RPI
+    se_rpi                          = Node(interface= preprocess.Resample(),   name = 'se_rpi')
+    se_rpi.inputs.orientation       = 'RPI'
+    se_rpi.inputs.outputtype        = 'NIFTI_GZ'
+
+    # 3. func deoblique
+    se_deoblique                    = Node(interface=preprocess.Refit(),       name = 'se_deoblique')
+    se_deoblique.inputs.deoblique   = True
 
 
-    flow.connect(inputnode      ,   'verio_func_se'    ,  se_rpi         ,  'in_file'            )
-    flow.connect(se_rpi         ,   'out_file'         ,  se_deoblique   ,  'in_file'            )
-    flow.connect(se_deoblique   ,   'out_file'         ,  se_split       ,  'in_file'        )
-    flow.connect(se_split       ,   'out_files'        ,  se_biasfield   ,  'input_image'        )
-    flow.connect(se_biasfield   ,   'output_image'     ,  se_merge       ,  'in_files'           )
-    flow.connect(se_merge       ,   'merged_file'     ,  outputnode     ,  'analyze_func_se'    )
+    flow.connect(inputnode         ,   'verio_func_se'    ,  se_rpi            ,  'in_file'               )
+    flow.connect(se_rpi            ,   'out_file'         ,  se_deoblique      ,  'in_file'               )
+
+    flow.connect(se_deoblique      ,   'out_file'         ,  outputnode          ,  'analyze_func_se'          )
+
+    ###########################################################################################################
+    ###########################################################################################################
+    ###########################################################################################################
+
+    # se_inv to RPI
+    se_inv_rpi                          = Node(interface= preprocess.Resample(),   name = 'seinv_rpi')
+    se_inv_rpi.inputs.orientation       = 'RPI'
+    se_inv_rpi.inputs.outputtype        = 'NIFTI_GZ'
+
+    # 3. func deoblique
+    se_inv_deoblique                    = Node(interface=preprocess.Refit(),       name = 'seinv_deoblique')
+    se_inv_deoblique.inputs.deoblique   = True
 
 
-    flow.connect(inputnode         ,   'verio_func_seinv' ,  seinv_rpi         ,  'in_file'           )
-    flow.connect(seinv_rpi         ,   'out_file'         ,  seinv_deoblique   ,   'in_file'          )
-    flow.connect(seinv_deoblique   ,   'out_file'         ,  seinv_split       ,  'in_file'       )
-    flow.connect(seinv_split       ,   'out_files'        ,  seinv_biasfield   ,  'input_image'       )
-    flow.connect(seinv_biasfield   ,   'output_image'     ,  seinv_merge       ,  'in_files'          )
-    flow.connect(seinv_merge       ,   'merged_file'     ,  outputnode        ,  'analyze_func_seinv'   )
 
-
-    flow.connect(inputnode      ,   'verio_func'       ,  remove_trs     ,  'in_file_a'             )
-    flow.connect(remove_trs     ,   'out_file'         ,  func_rpi       ,  'in_file'               )
-    flow.connect(func_rpi       ,   'out_file'         ,  func_deoblique ,  'in_file'               )
-    flow.connect(func_deoblique ,   'out_file'         ,  func_split     ,  'in_file'               )
-    flow.connect(func_split     ,   'out_files'        ,  func_biasfield ,  'input_image'           )
-    flow.connect(func_biasfield ,   'output_image'     ,  func_merge     ,  'in_files'              )
-    flow.connect(func_merge     ,   'merged_file'      ,  outputnode     ,   'analyze_func'         )
-
+    flow.connect(inputnode            ,   'verio_func_seinv'     ,  se_inv_rpi            ,  'in_file'               )
+    flow.connect(se_inv_rpi           ,   'out_file'             ,  se_inv_deoblique      ,  'in_file'               )
+    flow.connect(se_inv_deoblique     ,   'out_file'             ,  outputnode            ,  'analyze_func_seinv'          )
 
     return flow
+
+
+
+
 
 def func_preprocess():
 
@@ -187,3 +152,67 @@ def func_preprocess():
     flow.connect( mean       ,   'out_file'          ,   outputnode,  'func_preproc_mean')
 
     return flow
+
+
+def func_calc_disco_warp():
+    '''
+    Method to calculate and apply susceptibility induced distortion warps to a fresh functional image
+    used topup and applytopup
+
+    inputs
+        inputnode.func
+        inputnode.se_image
+        inputnode.se_invpol
+        inputnode.encoding_file
+
+    outputnode
+          outputnode.out_enc_file       # encoding directions file output for applytopup
+          outputnode.movpar             # movpar.txt output file
+          outputnode.fieldcoef          # file containing the field coefficients
+
+    '''
+    datain     = '/scr/sambesi1/workspace/Projects/GluREST/functional/datain.txt'
+
+    #define worflow
+    flow       = Workflow('func_distortion_correction')
+    inputnode  = Node(util.IdentityInterface(fields =['func',
+                                                      'func_se',
+                                                      'func_se_inv']), name ='inputnode')
+    outputnode = Node(util.IdentityInterface(fields = ['enc_file ',
+                                                       'topup_movpar',
+                                                       'topup_fieldcoef',
+                                                       'topup_field',
+                                                       'func_disco']), name = 'outputnode')
+    # define nodes
+    list_blips                    =  Node(util.Merge(2),               name = 'blips_list')
+    make_blips                    =  Node(fsl.Merge(),                 name = 'blips_merged')
+    make_blips.inputs.dimension   = 't'
+    make_blips.inputs.output_type = 'NIFTI_GZ'
+
+    topup                         = Node(interface= fsl.TOPUP(),       name = 'calc_topup')
+    topup.inputs.encoding_file    = datain
+    topup.inputs.output_type      = "NIFTI_GZ"
+
+    apply                         = Node(interface=fsl.ApplyTOPUP(),   name = 'apply_topup')
+    apply.inputs.in_index         = [1]
+    apply.inputs.encoding_file    = datain
+    apply.inputs.method           = 'jac'
+    apply.inputs.output_type      = "NIFTI_GZ"
+
+    # connect nodes
+    flow.connect(inputnode    , 'func_se'         , list_blips     , 'in1'                )
+    flow.connect(inputnode    , 'func_se_inv'     , list_blips     , 'in2'                )
+    flow.connect(list_blips   , 'out'             , make_blips     , 'in_files'           )
+    flow.connect(make_blips   , 'merged_file'     , topup          , 'in_file'            )
+    flow.connect(inputnode    , 'func'            , apply          , 'in_files'           )
+    flow.connect(topup        , 'out_fieldcoef'   , apply          , 'in_topup_fieldcoef' )
+    flow.connect(topup        , 'out_movpar'      , apply          , 'in_topup_movpar'    )
+
+    flow.connect(topup        , 'out_enc_file'   , outputnode     , 'enc_file'            )
+    flow.connect(topup        , 'out_movpar'     , outputnode     , 'topup_movpar'        )
+    flow.connect(topup        , 'out_fieldcoef'  , outputnode     , 'topup_fieldcoef'     )
+    flow.connect(topup        , 'out_field'      , outputnode     , 'topup_field'         )
+    flow.connect(apply        , 'out_corrected'  , outputnode     , 'func_disco'          )
+
+    return flow
+

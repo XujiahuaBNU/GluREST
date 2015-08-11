@@ -41,7 +41,7 @@ def bandpas_voxels_workflow():
 
 def bandpass_voxels(realigned_file, bandpass_freqs, sample_period = None):
     """
-    Please note this code is the exact implentation of CPAC-0.3.8 with no manipulations
+    Note this code is the exact implentation of CPAC-0.3.8 with no manipulations
     https://github.com/FCP-INDI/C-PAC
 
     Performs ideal bandpass filtering on each voxel time-series.

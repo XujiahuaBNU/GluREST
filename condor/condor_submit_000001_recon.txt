@@ -8,5 +8,5 @@ getenv = True
 request_memory = 4000
 request_cpus = 1
 notify_user = amadeus.kanaan@gmail.com
-queue 1
+queue 2
 
