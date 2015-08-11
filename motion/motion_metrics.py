@@ -38,8 +38,8 @@ def calc_FD_power(motion_pars):
     lines        =  open(motion_pars, 'r').readlines()
     rows         = [[float(x) for x in line.split()] for line in lines]
     cols         = np.array([list(col) for col in zip(*rows)])
-    rotations    = np.transpose(np.abs(np.diff(cols[0:3, :])))
-    translations = np.transpose(np.abs(np.diff(cols[3:6, :])))
+    translations = np.transpose(np.abs(np.diff(cols[0:3, :])))
+    rotations    = np.transpose(np.abs(np.diff(cols[3:6, :])))
     FD_power     = np.sum(translations, axis = 1) + (50*3.141/180)*np.sum(rotations, axis =1)
     #FD is zero for the first time point
     FD_power = np.insert(FD_power, 0, 0)
@@ -68,10 +68,10 @@ def calc_power_motion_params(subject_id, fd_1d, DVARS, threshold = 0.2):
                "FD_exclude_%, " \
                "FD_topQuart_μ, " \
                "FD_RMS, " \
+               "FD_max, " \
                "DVARS_μ " \
 
     f.write("%s," % subject_id)
-
 
     # calc Mean FD
     data= loadtxt(fd_1d)
@@ -96,14 +96,19 @@ def calc_power_motion_params(subject_id, fd_1d, DVARS, threshold = 0.2):
     rmsFD = np.sqrt(np.mean(data))
     f.write('%.4f,' % rmsFD)
 
+    # FD max
+    fd_max = np.max(data)
+    f.write('%.4f,' % fd_max)
+
     # mean DVARS
     meanDVARS = np.mean(np.load(DVARS))
     f.write('%.4f,' % meanDVARS)
     f.close()
+
     return out_file
 
 
-def calc_frames_excluded(fd_1d, fd_thresh = 0.5, frames_before = 1, frames_after = 2):
+def calc_frames_excluded(fd_1d, fd_thresh = 0.2, frames_before = 1, frames_after = 2):
     '''
     CPAC-0.3.8 implenentation
     Method to calculate the number of timepoints that would be excluded
@@ -155,7 +160,7 @@ def calc_frames_excluded(fd_1d, fd_thresh = 0.5, frames_before = 1, frames_after
     return out_file
 
 
-def calc_frames_included(fd_1d, exclude_list, fd_threshold = 0.5):
+def calc_frames_included(fd_1d, exclude_list, fd_threshold = 0.2):
     '''
     CPAC-0.3.8 implenentation
     Method to calculate the number of timepoints left after scrubbing above a specific FD threshold

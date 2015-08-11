@@ -6,6 +6,81 @@ import nipype.interfaces.utility as util
 import nipype.interfaces.fsl as fsl
 from nipype.interfaces.afni import preprocess
 
+
+def anat2mni_nonlinear():
+
+    config          = '/usr/share/fsl/5.0/etc/flirtsch/T1_2_MNI152_2mm.cnf'
+    mni_brain_2mm   = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_brain.nii.gz'
+    mni_skull_2mm   = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm.nii.gz'
+
+    #define workflow
+    flow  = Workflow('anat2mni')
+
+    inputnode  = Node(util.IdentityInterface(fields=['anat_image',
+                                                     'anat_wm',
+                                                     'anat_gm',
+                                                     'anat_cm']),
+                     name = 'inputnode')
+
+    outputnode = Node(util.IdentityInterface(fields=['anat2mni',
+                                                     'nonlinear_warp',
+                                                     'mni_mask_gm',
+                                                     'mni_mask_wm',
+                                                     'mni_mask_cm'  ]),
+                                    name = 'outputnode')
+
+    flirt = Node(interface= fsl.FLIRT(), name = 'anat2mni_linear_flirt')
+    flirt.inputs.cost       = 'mutualinfo'
+    flirt.inputs.dof        = 12
+    flirt.inputs.reference  = mni_brain_2mm  # without skull here.. see example on fsl website.
+
+    fnirt = Node(interface=fsl.FNIRT(), name = 'anat2mni_nonlinear_fnirt')
+    fnirt.inputs.config_file        = config
+    fnirt.inputs.fieldcoeff_file    = True
+    fnirt.inputs.jacobian_file      = True
+    fnirt.inputs.ref_file           = mni_brain_2mm # no skull
+
+    warp_gm = Node(interface=fsl.ApplyWarp(), name='warp_gm')
+    warp_gm.inputs.ref_file =mni_brain_2mm
+    warp_wm = Node(interface=fsl.ApplyWarp(), name='warp_wm')
+    warp_wm.inputs.ref_file =mni_brain_2mm
+    warp_cm = Node(interface=fsl.ApplyWarp(), name='warp_csf')
+    warp_cm.inputs.ref_file =mni_brain_2mm
+
+    thresh_gm                    = Node(fsl.Threshold(), name= 'mni_mask_gm')
+    thresh_gm.inputs.thresh      = 0.1
+    thresh_gm.inputs.args        = '-bin'
+
+    thresh_wm                    = Node(fsl.Threshold(), name= 'mni_mask_wm')
+    thresh_wm.inputs.thresh      = 0.96
+    thresh_wm.inputs.args        = '-bin'
+
+    thresh_csf                   = Node(fsl.Threshold(), name= 'mni_mask_csf')
+    thresh_csf.inputs.thresh     = 0.96
+    thresh_csf.inputs.args       = '-bin'
+
+    flow.connect(inputnode, 'anat_image'       , flirt,      'in_file'        )
+    flow.connect(inputnode, 'anat_image'       , fnirt,      'in_file'        )
+    flow.connect(flirt,     'out_matrix_file'  , fnirt,      'affine_file'    )
+    flow.connect(inputnode, 'anat_gm'          , warp_gm,    'in_file'        )
+    flow.connect(inputnode, 'anat_wm'          , warp_wm,    'in_file'        )
+    flow.connect(inputnode, 'anat_cm'          , warp_cm,    'in_file'        )
+    flow.connect(fnirt,     'fieldcoeff_file'  , warp_gm,    'field_file'     )
+    flow.connect(fnirt,     'fieldcoeff_file'  , warp_wm,    'field_file'     )
+    flow.connect(fnirt,     'fieldcoeff_file'  , warp_cm,    'field_file'     )
+
+    flow.connect(warp_gm,   'out_file'         , thresh_gm,  'in_file'        )
+    flow.connect(warp_wm,   'out_file'         , thresh_wm,  'in_file'        )
+    flow.connect(warp_cm,   'out_file'         , thresh_csf, 'in_file'        )
+
+    flow.connect(fnirt,     'warped_file'      , outputnode, 'anat2mni'    )
+    flow.connect(thresh_gm, 'out_file'         , outputnode, 'mni_mask_gm'    )
+    flow.connect(thresh_wm, 'out_file'         , outputnode, 'mni_mask_wm'    )
+    flow.connect(thresh_csf,'out_file'         , outputnode, 'mni_mask_cm'    )
+    flow.connect(fnirt,     'fieldcoeff_file'  , outputnode, 'nonlinear_warp'    )
+
+    return flow
+
 def func2anat_linear():
     '''
     Method to calculate linear registration matrix from a functional image to an anatomical image using FSL-FLIRT
@@ -79,84 +154,6 @@ def func2anat_linear():
 
 
 
-def anat2mni_nonlinear():
-
-    config          = '/usr/share/fsl/5.0/etc/flirtsch/T1_2_MNI152_2mm.cnf'
-    mni_brain_2mm   = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_brain.nii.gz'
-    mni_skull_2mm   = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm.nii.gz'
-
-    #define workflow
-    flow  = Workflow('anat2mni')
-
-    inputnode  = Node(util.IdentityInterface(fields=['anat_image',
-                                                     'anat_wm',
-                                                     'anat_gm',
-                                                     'anat_cm']),
-                     name = 'inputnode')
-
-    outputnode = Node(util.IdentityInterface(fields=['anat2mni',
-                                                     'nonlinear_warp',
-                                                     'mni_mask_gm',
-                                                     'mni_mask_wm',
-                                                     'mni_mask_cm'  ]),
-                                    name = 'outputnode')
-
-    flirt = Node(interface= fsl.FLIRT(), name = 'anat2mni_linear_flirt')
-    flirt.inputs.cost       = 'corratio'
-    flirt.inputs.dof        = 12
-    flirt.inputs.reference  = mni_brain_2mm  # without skull here.. see example on fsl website.
-
-    fnirt = Node(interface=fsl.FNIRT(), name = 'anat2mni_nonlinear_fnirt')
-    fnirt.inputs.config_file        = config
-    fnirt.inputs.fieldcoeff_file    = True
-    fnirt.inputs.jacobian_file      = True
-    fnirt.inputs.ref_file           = mni_brain_2mm # with skull here.. see example on fsl website.
-
-    warp_gm = Node(interface=fsl.ApplyWarp(), name='warp_gm')
-    warp_gm.inputs.ref_file =mni_brain_2mm
-    warp_wm = Node(interface=fsl.ApplyWarp(), name='warp_wm')
-    warp_wm.inputs.ref_file =mni_brain_2mm
-    warp_cm = Node(interface=fsl.ApplyWarp(), name='warp_csf')
-    warp_cm.inputs.ref_file =mni_brain_2mm
-
-
-    thresh_gm                    = Node(fsl.Threshold(), name= 'mni_mask_gm')
-    thresh_gm.inputs.thresh      = 0.5
-    thresh_gm.inputs.args        = '-bin'
-
-    thresh_wm                    = Node(fsl.Threshold(), name= 'mni_mask_wm')
-    thresh_wm.inputs.thresh      = 0.5
-    thresh_wm.inputs.args        = '-bin'
-
-    thresh_csf                   = Node(fsl.Threshold(), name= 'mni_mask_csf')
-    thresh_csf.inputs.thresh     = 0.5
-    thresh_csf.inputs.args       = '-bin '
-
-    flow.connect(inputnode, 'anat_image'       , flirt,      'in_file'        )
-    flow.connect(inputnode, 'anat_image'       , fnirt,      'in_file'        )
-    flow.connect(flirt,     'out_matrix_file'  , fnirt,      'affine_file'    )
-    flow.connect(inputnode, 'anat_gm'          , warp_gm,    'in_file'        )
-    flow.connect(inputnode, 'anat_wm'          , warp_wm,    'in_file'        )
-    flow.connect(inputnode, 'anat_cm'          , warp_cm,    'in_file'        )
-    flow.connect(fnirt,     'fieldcoeff_file'  , warp_gm,    'field_file'     )
-    flow.connect(fnirt,     'fieldcoeff_file'  , warp_wm,    'field_file'     )
-    flow.connect(fnirt,     'fieldcoeff_file'  , warp_cm,    'field_file'     )
-
-    flow.connect(warp_gm,   'out_file'         , thresh_gm,  'in_file'        )
-    flow.connect(warp_wm,   'out_file'         , thresh_wm,  'in_file'        )
-    flow.connect(warp_cm,   'out_file'         , thresh_csf, 'in_file'        )
-
-    flow.connect(fnirt,     'warped_file'      , outputnode, 'anat2mni'    )
-    flow.connect(thresh_gm, 'out_file'         , outputnode, 'mni_mask_gm'    )
-    flow.connect(thresh_wm, 'out_file'         , outputnode, 'mni_mask_wm'    )
-    flow.connect(thresh_csf,'out_file'         , outputnode, 'mni_mask_cm'    )
-    flow.connect(fnirt,     'fieldcoeff_file'  , outputnode, 'nonlinear_warp'    )
-
-    return flow
-
-
-
-
 
 def func2mni_convertwarp():
     '''
@@ -178,6 +175,7 @@ def func2mni_convertwarp():
     from nipype.pipeline.engine import Workflow, Node, MapNode
 
     mni_skull_2mm = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm.nii.gz'
+    mni_brain_2mm   = '/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_brain.nii.gz'
 
     flow =Workflow('func2mni_nonlinear')
     inputnode = Node(util.IdentityInterface(fields=['fresh_func',
@@ -209,7 +207,7 @@ def func2mni_convertwarp():
     convert_xfm                           = MapNode(interface=fsl.ConvertXFM(), name = 'convert_linear_moco_xfms', iterfield = ['in_file2'])
     convert_xfm.inputs.concat_xfm         = True
 
-     #create unified warp
+    #create unified warp
     convert_warp                          = MapNode(interface = fsl.ConvertWarp(), name = 'convert_warp', iterfield = ['premat'])
     convert_warp.inputs.output_type       = "NIFTI_GZ"
     convert_warp.inputs.out_relwarp       = True

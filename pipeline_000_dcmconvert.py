@@ -1,33 +1,20 @@
 __author__ = 'kanaan 08.03.2015'
 
-'========================================================================================'
-#                       DICOM to NIFTI Conversion pipeline                               '
-#
-# Generates accurately labeled images
-# MP2RAGE images are skulled with the SPECTRE2010 algorithm
-'========================================================================================'
-
-'========================================================================================'
-afsdir_a           = '/xxx/a/'
-list_controls_a    = [ 'xxx']
-controls_outdir_a  = 'x/probands'
-freesurfer_dir_a   = 'x/GTS_a'
-
-'========================================================================================'
-
+import os
+import sys
+import shutil
+import subprocess
+from nipype.interfaces.mipav.developer import JistIntensityMp2rageMasking
+from nipype.interfaces.mipav.developer import MedicAlgorithmSPECTRE2010
+import nipype.interfaces.fsl as fsl
+from variables.subject_list import *
+from utils.utils import locate
 
 def convert_scanner_data(population, afs_dir, data_dumpdir):
-    def locate(string, directory):
-        import os
-        for file in os.listdir(directory):
-            x=[]
-            if string in file:
-                x = os.path.join(directory,file)
-                return x
 
     count=0
     for subject in population:
-	count +=1
+        count +=1
         print '========================================================================================'
         print      '%s- Dicom Conversion and Anatomical Preprocessing for subject %s_%s' %(count,subject, afs_dir[-2])
         print '========================================================================================'
@@ -35,9 +22,9 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
         for folder in os.listdir(afs_dir):
             if folder.startswith('p'):
 
-                '========================= '
-                '     DICOM to NIFTI       '
-                '========================= '
+                '===================================================================================================='
+                '                                        DICOM to NIFTI                                              '
+                '===================================================================================================='
 
                 #set dicom dir
                 if os.path.isdir(os.path.join(afs_dir, folder, subject, 'DICOM')):
@@ -56,7 +43,6 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                     except OSError:
                         nifti_dir  = str(os.path.join(subject_dir, 'NIFTI'))
                     nifti_dir      = str(os.path.join(subject_dir, 'NIFTI'))
-
 
                     # convert dicoms to niftis
                     # ensure conversion hasnt been completed before
@@ -118,9 +104,6 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                                           str(os.path.join(nifti_dir, 'DWI.nii')))
 
                             # remove irrelevent files to conserve space
-
-
-
                             irrelvent_lst = ['AAH', 'AX', 'ax', 'Cor', 'cor', 'COR', 'hip',
                                              'Hip', 'slab', 'Modus', 'acpc', 'DUMMY', 'dummy',
                                              'short', 'SLAB' ]
@@ -131,10 +114,9 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                             except OSError:
                                 print 'cant delete file %s' %str(os.path.join(nifti_dir, file))
 
-
-                    '========================= '
-                    'Denoising MPRAGE Anatomical'
-                    '========================= '
+                    '===================================================================================================='
+                    '                                  Denoising MPRAGE Anatomical                                       '
+                    '===================================================================================================='
 
                     if os.path.isfile(os.path.join(nifti_dir, 'MP2RAGE_BRAIN.nii')):
                         print 'MP2RAGE already deskulled............... moving on'
@@ -172,9 +154,9 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
 
                         uni_denoised   = locate('outMasked2.nii', mipav_dir)
 
-                        '========================= '
-                        '        Deskulling        '
-                        '========================= '
+                        '===================================================================================================='
+                        '                                          Deskulling                                                '
+                        '===================================================================================================='
 
                         anat_deskull   = MedicAlgorithmSPECTRE2010(inAtlas       = str('/afs/cbs.mpg.de/software/cbstools/3.0/jist-cruise/Atlas/spectre/oasis-3-v2.txt'),
                                                                    #inInitial    = 5,
@@ -193,7 +175,6 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                         anat_deskull.inputs.inInput = uni_denoised
                         anat_deskull.run()
 
-
                         shutil.move(str(os.path.join(mipav_dir, 'outStripped.nii')),
                                     str(os.path.join(nifti_dir, 'MP2RAGE_BRAIN.nii')))
 
@@ -201,10 +182,9 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                         brain = os.path.join(nifti_dir, 'MP2RAGE_BRAIN.nii')
                         print 'Path =  %s' %brain
     print '========================================================================================'
-    print '======================            END OF LOOP                 =========================='
 
-'######################################################################################################################################'
-'######################################################################################################################################'
 if __name__ == "__main__":
-    #convert_scanner_data(list_controls_a, afsdir_a, controls_outdir_a)
-    convert_scanner_data(list_controls_b, afsdir_b, controls_outdir_b)
+    convert_scanner_data(controls_a, afsdir_a, controls_datadir_a)
+    convert_scanner_data(controls_b, afsdir_b, controls_datadir_b)
+    convert_scanner_data(patients_a, afsdir_a, patients_datadir_a)
+    convert_scanner_data(patients_b, afsdir_b, patients_datadir_b)

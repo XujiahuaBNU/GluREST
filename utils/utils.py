@@ -51,3 +51,27 @@ def grabber_util(name):
 
 
     return flow
+
+
+def locate(string, directory):
+        import os
+        for file in os.listdir(directory):
+            x=[]
+            if string in file:
+                x = os.path.join(directory,file)
+                return x
+
+
+
+#assert len(sys.argv)== 2
+#subject_index=int(sys.argv[1])
+
+# if len(sys.argv) == 1:
+#     print 'No argument provided, running internal subject list'
+# else:
+#     mode=sys.argv[1]
+#     if mode == '-sub':
+#         population=[sys.argv[2]]
+#     elif mode == '-sublist':
+#         with open(sys.argv[2], 'r') as f:
+#             population = [line.strip() for line in f]
