@@ -1,7 +1,7 @@
 __author__ = 'kanaan' 'Dec 18 2014'
 
 # based on CPAC-0.3.8 with various manipulations
-#from utils import *
+#from utilities import *
 
 from qc_utils import determine_start_and_end, get_spacing, make_edge
 

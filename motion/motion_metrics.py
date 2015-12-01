@@ -3,7 +3,10 @@ __author__ = 'kanaan' '2014-12-17'
 
 # based on CPAC038
 # see https://github.com/FCP-INDI/C-PAC
-
+import numpy as np
+import nibabel as nib
+import os
+    
 
 def calc_DVARS(rest, mask):
     '''
@@ -26,6 +29,23 @@ def calc_DVARS(rest, mask):
 
     np.save(dvars_out, DVARS)
     return dvars_out
+
+def return_DVARS(rest, mask):
+
+    rest_data = nib.load(rest).get_data().astype(np.float32)
+    mask_data = nib.load(mask).get_data().astype('bool')
+    
+    #square of relative intensity value for each voxel across
+    #every timepoint
+    data = np.square(np.diff(rest_data, axis = 3))
+    #applying mask, getting the data in the brain only
+    data = data[mask_data]
+    #square root and mean across all timepoints inside mask
+    DVARS = np.sqrt(np.mean(data, axis=0))
+    
+    return DVARS
+
+
 
 def calc_FD_power(motion_pars):
     '''

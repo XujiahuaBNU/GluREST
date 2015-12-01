@@ -4,6 +4,9 @@ import nipype.interfaces.utility as util
 from nipype.interfaces.afni import preprocess
 import nipype.interfaces.freesurfer as fs
 
+import string
+valid_chars = '-_.() %s%s' %(string.ascii_letters, string.digits)
+
 
 def grabber_util(name):
     '''
@@ -52,6 +55,9 @@ def grabber_util(name):
 
     return flow
 
+def return_list(file_1,file_2):
+    list = [file_1,file_2]
+    return list
 
 def locate(string, directory):
         import os
@@ -60,6 +66,27 @@ def locate(string, directory):
             if string in file:
                 x = os.path.join(directory,file)
                 return x
+
+
+import string
+valid_chars = '-_.() %s%s' %(string.ascii_letters, string.digits)
+
+
+def mkdir_path(path):
+    import os
+    import errno
+    import string
+    import subprocess
+
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+
+
 
 
 

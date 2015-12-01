@@ -1,6 +1,6 @@
 __author__ = 'kanaan--- Jan 15 2015'
 
-def bandpas_voxels_workflow():
+def bandpas_voxels_workflow(name = 'func_bandpassed'):
     from nipype.pipeline.engine import Node, Workflow
     import nipype.interfaces.utility as util
 
@@ -8,7 +8,7 @@ def bandpas_voxels_workflow():
     Workflow to perform frequency filtering on functional data.
 
     inputnode
-            input.func_residuals      # denoise regressed file
+            input.func                # denoise regressed file
             input.bandpass_freqs      # tuple (0.01,0.1)
     outputnode
             output.func_bandpassed    #bandpass output
@@ -18,9 +18,9 @@ def bandpas_voxels_workflow():
 
     '''
 
-    flow        = Workflow('func_bandpassed')
+    flow        = Workflow(name)
 
-    inputnode   = Node(util.IdentityInterface(fields=['func_residuals', 'bandpass_freqs']),
+    inputnode   = Node(util.IdentityInterface(fields=['func', 'bandpass_freqs']),
                        name = 'inputnode')
 
     outputnode  =  Node(util.IdentityInterface(fields=['func_bandpassed']),
@@ -33,7 +33,7 @@ def bandpas_voxels_workflow():
                        name='frequency_filtering')
 
 
-    flow.connect(inputnode, 'func_residuals'   , bandpass    , 'realigned_file'    )
+    flow.connect(inputnode, 'func'   , bandpass    , 'realigned_file'    )
     flow.connect(inputnode, 'bandpass_freqs'   , bandpass    , 'bandpass_freqs'   )
     flow.connect(bandpass,  'bandpassed_file'  , outputnode  , 'func_bandpassed'   )
 

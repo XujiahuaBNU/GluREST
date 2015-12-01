@@ -532,7 +532,7 @@ def ica_aroma_denoise(fslDir, inFile, mask, dim, TR, mc, denType):
 
 	return denoised
 
-def ICA_AROMA():
+def gICA_AROMA():
 
 	flow  = Workflow('denoise_ica_aroma')
 

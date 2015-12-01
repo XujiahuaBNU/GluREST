@@ -8,7 +8,7 @@ from nipype.interfaces.mipav.developer import JistIntensityMp2rageMasking
 from nipype.interfaces.mipav.developer import MedicAlgorithmSPECTRE2010
 import nipype.interfaces.fsl as fsl
 from variables.subject_list import *
-from utils.utils import locate
+from utilities.utils import locate
 
 def convert_scanner_data(population, afs_dir, data_dumpdir):
 
@@ -181,10 +181,12 @@ def convert_scanner_data(population, afs_dir, data_dumpdir):
                     if os.path.isfile(os.path.join(nifti_dir, 'MP2RAGE_BRAIN.nii')):
                         brain = os.path.join(nifti_dir, 'MP2RAGE_BRAIN.nii')
                         print 'Path =  %s' %brain
+
     print '========================================================================================'
 
 if __name__ == "__main__":
-    convert_scanner_data(controls_a, afsdir_a, controls_datadir_a)
-    convert_scanner_data(controls_b, afsdir_b, controls_datadir_b)
-    convert_scanner_data(patients_a, afsdir_a, patients_datadir_a)
+    # convert_scanner_data(['GHAT'], afsdir_a, controls_datadir_a)
+    # convert_scanner_data(controls_a, afsdir_a, controls_datadir_a)
+    # convert_scanner_data(patients_a, afsdir_a, patients_datadir_a)
+    #convert_scanner_data(controls_b, afsdir_b, controls_datadir_b)
     convert_scanner_data(patients_b, afsdir_b, patients_datadir_b)

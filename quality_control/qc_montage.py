@@ -10,8 +10,10 @@ import nipype.interfaces.fsl as fsl
 import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 #from CPAC.qc.qc import *
-#from CPAC.qc.utils import determine_start_and_end, drange
-
+#from CPAC.qc.utilities import determine_start_and_end, drange
+from matplotlib.gridspec import GridSpec
+from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
+from matplotlib.figure import Figure
 from qc_utils import drange
 
 def make_montage_axial(overlay, underlay, png_name, cbar_name):
@@ -476,7 +478,7 @@ def montage_tissues_axial(overlay_csf, overlay_wm, overlay_gm, underlay, png_nam
 
     return png_name
 
-def montage_tissues_sagittal(overlay_csf, overlay_wm, overlay_gm, underlay, png_name):
+def montage_tissues_sagittal(overlay_csf, overlay_wm, overlay_gm, underlay, png_name, figsize = (8.3, 11.7)):
 
     """
     Draws Montage using GM WM and CSF overlays on Anatomical brain in Sagittal Direction
@@ -558,6 +560,8 @@ def montage_tissues_sagittal(overlay_csf, overlay_wm, overlay_gm, underlay, png_
     import matplotlib.colors as col
     import matplotlib.cm as cm
     import nibabel as nb
+    from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
+    from matplotlib.figure import Figure
 
     Y = nb.load(underlay).get_data()
     x1, x2 = determine_start_and_end(Y, 'sagittal', 0.0001)
@@ -577,7 +581,10 @@ def montage_tissues_sagittal(overlay_csf, overlay_wm, overlay_gm, underlay, png_
     max_gm = np.nanmax(np.abs(X_gm.flatten()))
     X_gm[X_gm != 0.0] = max_gm
     x, y, z = Y.shape
-    fig = plt.figure(1)
+    fig = Figure(figsize=figsize)
+    FigureCanvas(fig)
+
+    plt.figure(1)
     max_ = np.max(np.abs(Y))
     grid = ImageGrid(fig, 111, nrows_ncols=(3, 6), share_all=True, aspect=True, cbar_mode="None", direction="row")
 
@@ -616,9 +623,36 @@ def montage_tissues_sagittal(overlay_csf, overlay_wm, overlay_gm, underlay, png_
     cbar = grid.cbar_axes[0].colorbar(im)
 
     #plt.show()
+
+
     plt.axis("off")
     png_name = str(os.path.join(os.getcwd(), png_name))
     plt.savefig(png_name, dpi=300, bbox_inches='tight')
-    plt.close()
 
-    return png_name
+    return fig
+
+import nibabel as nb
+from nipype.interfaces.freesurfer.preprocess import ApplyVolTransform
+from nipy.labs import viz
+import numpy as np
+from pylab import cm
+import matplotlib.pyplot as plt
+
+def plot_epi_T1_corregistration(mean_epi_file, anat_edge, figsize=(11.7,8.3)):
+
+    fig = plt.figure(figsize=figsize)
+
+    func = nb.load(mean_epi_file).get_data()
+    func_affine = nb.load(mean_epi_file).get_affine()
+
+    anat = nb.load(anat_edge).get_data()
+    anat_affine = nb.load(anat_edge).get_affine()
+
+    slicer = viz.plot_anat(np.asarray(func), np.asarray(func_affine), black_bg=True,
+                           cmap = cm.Greys_r,  # @UndefinedVariable
+                           cut_coords = (-6,3,28),
+                           figure = fig,
+                           draw_cross = False)
+    slicer.contour_map(np.asarray(anat), np.asarray(anat_affine), levels=[.51], colors=['r',])
+
+    return fig

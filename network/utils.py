@@ -1,7 +1,7 @@
 __author__ = 'kanaan'
 
 
-# CPAC/network_centrality/utils.py
+# CPAC/network_centrality/utilities.py
 #
 # Network centrality utilities
 

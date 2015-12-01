@@ -1,5 +1,6 @@
 __author__ = 'kanaan'
 '''
+Cole, CC, 2010
 
 ## preprocessing
 1. First 4 volumes were removed
@@ -98,18 +99,83 @@ variance normalization of the RSfmri data.
 
 
 
+import os
+from utilities.utils import mkdir_path
+from variables.subject_list import *
+from nipype.interfaces.fsl import Merge
+from nipype.interfaces import afni as afni
+import nibabel as nb
+import commands
 
 
+def run_group_ica(output_dir, working_dir, population, pipeline_name):
+
+    print '#############################################################################'
+    print ''
+    print '                          RUNNNING GROUP ICA'
+    print ''
+    print '#############################################################################'
+
+    #define ica outputdir
+    group_ica_dir = os.path.join(working_dir, 'MELODIC_GROUP_ICA')
+    mkdir_path(group_ica_dir)
+
+    # concatenate fmri preprocessed and high-pass filtered data (0.001hz) for group ICA
+    preprocssed_all =[]
+    for subject in population:
+        preprocssed_subject = os.path.join(output_dir, pipeline_name, subject, 'functional_MNI4mm_preproc_FWHM_AROMA_residual_high_pass/bandpassed_demeaned_filtered.nii.gz')
+        if os.path.isfile(preprocssed_subject):
+            preprocssed_all.append(preprocssed_subject)
+        else:
+            print 'subjects with missing data ',subject
+    data_4_melodic  = ','.join(preprocssed_all)
+
+    #print data_4_melodic
+
+    def run_melodic(func, brain_mask, TR = 1.4, melodic_dir= group_ica_dir):
+
+        # Run MELODIC
+        #os.system('melodic --in=%s --outdir=%s --mask=%s -Ostats --nobet --mmthresh=0.5 --report --tr=%s' %(func, melodic_dir, brain_mask, str(TR)))
+        os.system(' '.join([ 'melodic',
+                             '--in=' + func,
+                             '--mask=' + brain_mask,
+                             '-v',
+			                 '-d 25',
+                             '--outdir='  + melodic_dir,
+                             '--Ostats --nobet --mmthresh=0.5 --report',
+                             '--tr=' + str(TR)]))
+        #if os.path.isfile(os.path.join(melodic_dir, 'melodic_IC.nii.gz')):
+        # Get number of components
+       	melodic_4d = nb.load(os.path.join(melodic_dir, 'melodic_IC.nii.gz'))
+        n_componenets = melodic_4d.shape[3]
+
+        for n_componenet in range(1,n_componenets):
+            z_thresh = os.path.join(melodic_dir, 'stats/thresh_zstat%s.nii.gz'%n_componenet)
+
+            cmd = ' '.join(['fslinfo', z_thresh, '| grep dim4 | head -n1 | awk \'{print $2}\''])
+            z_thresh_dim4 = int(float(commands.getoutput(cmd)))
+
+            # Zero-pad the IC number and extract the 3D data........
+            # For cases where the mixture modeling does not converge, 2nd img in the 4th dimension wil be the results of the null hypothesis test.
+            cmd = ' '.join(['zeropad', str(n_componenet), '4'])
+            z_thresh_zeropad = os.path.join(melodic_dir,'thr_zstat' + commands.getoutput(cmd))
+
+            # Extract last spatial map within the thresh_zstat file
+            os.system('fslroi %s %s %s 1' %(z_thresh, z_thresh_zeropad, str(z_thresh_dim4-1)))
+
+        # Merge and subsequently remove all mixture modeled Z-maps within the output directory
+        z_thresh_zeropad_all = os.path.join(melodic_dir, 'thr_zstat????.nii.gz')
+        z_thresh_merged = os.path.join(melodic_dir, 'melodic_IC_thr.nii.gz')
+
+        os.system('fslmerge -t %s %s ' %(z_thresh_merged , z_thresh_zeropad_all))
+        os.system('rm ' + z_thresh_zeropad_all)
+
+        # Apply the mask to the merged file (in case a melodic-directory was predefined and run with a different mask)
+        os.system('fslmaths %s -mas %s %s' %(z_thresh_merged, brain_mask, z_thresh_merged))
+
+    run_melodic(data_4_melodic, mni_brain_mask_4mm, TR = 1.4, melodic_dir = group_ica_dir)
 
 
-
-
-
-
-
-
-
-def ica_aroma_denoise(fslDir, inFile, mask, dim, TR, mc, denType):
-	import os
-
+working_dir = '/scr/sambesi4/workspace/project_GluRest/WORKING_DIR'
+run_group_ica(output_dir_a, working_dir, study_a_list, pipeline_name = 'GluConnectivity')
 

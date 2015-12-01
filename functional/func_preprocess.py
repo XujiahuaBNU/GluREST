@@ -100,9 +100,7 @@ def func_equilibrate():
 
 
 
-
-
-def func_preprocess():
+def func_preprocess(name = 'func_preproc'):
 
     '''
     Method to preprocess functional data after warping to anatomical space.
@@ -118,7 +116,7 @@ def func_preprocess():
     '''
 
     # Define Workflow
-    flow        = Workflow(name='func2mni_preprocessed')
+    flow        = Workflow(name=name)
     inputnode   = Node(util.IdentityInterface(fields=['func_in']),
                            name='inputnode')
     outputnode  = Node(util.IdentityInterface(fields=['func_preproc',
@@ -133,10 +131,13 @@ def func_preprocess():
     norm.out_data_type                 = 'float'
     norm.output_type                   = 'NIFTI'
 
-
     # 4- Create brain mask from Normalized data.
-    mask                               = Node(interface = preprocess.Automask(),  name = 'func_preprocessed')
-    mask.inputs.outputtype             = 'NIFTI_GZ'
+    mask                               = Node(interface = fsl.BET(),  name = 'func_preprocessed')
+    mask.inputs.functional             = True
+    mask.inputs.mask                   = True
+    mask.inputs.frac                   = 0.5
+    mask.inputs.vertical_gradient      = 0
+    mask.inputs.threshold              = True
 
     # 3- Calculate Mean of Skull stripped image
     mean                          = Node(interface = preprocess.TStat(),     name = 'func_preprocessed_mean')
@@ -146,9 +147,9 @@ def func_preprocess():
 
     flow.connect( inputnode  ,   'func_in'           ,   norm,        'in_file'     )
     flow.connect( norm       ,   'out_file'          ,   mask,        'in_file'     )
-    flow.connect( mask       ,   'out_file'          ,   mean,        'in_file'     )
-    flow.connect( mask       ,   'brain_file'        ,   outputnode,  'func_preproc')
-    flow.connect( mask       ,   'out_file'          ,   outputnode,  'func_preproc_mask')
+    flow.connect( norm       ,   'out_file'          ,   mean,        'in_file'     )
+    flow.connect( mask       ,   'out_file'          ,   outputnode,  'func_preproc')
+    flow.connect( mask       ,   'mask_file'         ,   outputnode,  'func_preproc_mask')
     flow.connect( mean       ,   'out_file'          ,   outputnode,  'func_preproc_mean')
 
     return flow

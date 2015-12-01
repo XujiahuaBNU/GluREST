@@ -3,13 +3,14 @@ __author__ = 'kanaan' '22.05.2015'
 
 from nipype.pipeline.engine import Node, Workflow
 import nipype.interfaces.utility as util
+import nipype.interfaces.fsl as fsl
 
 
 # forked from CPAC version 0.39 https://github.com/FCP-INDI/C-PAC
 def extract_tissue_data(data_file,
                         ventricles_mask_file,
                         wm_seg_file, csf_seg_file, gm_seg_file,
-                        wm_threshold=0.0, csf_threshold=0.0, gm_threshold=0.0):
+                        wm_threshold=0.01, csf_threshold=0.01, gm_threshold=0.0):
     import numpy as np
     import nibabel as nb
     import os
@@ -108,18 +109,17 @@ def extract_tissue_data(data_file,
     except:
         raise MemoryError('Unable to load %s' % csf_seg)
 
-
     if not safe_shape(data, csf_seg):
         raise ValueError('Spatial dimensions for data, cerebral spinal fluid segment do not match')
 
     # Only take the CSF at the lateral ventricles as labeled in the Harvard
     # Oxford parcellation regions 4 and 43
-    csf_mask = (csf_seg > csf_threshold)*(lat_ventricles_mask==1)
+    #csf_mask = (csf_seg > csf_threshold)#*(lat_ventricles_mask==1)
+    csf_mask = erode_mask(csf_seg > csf_threshold)
     csf_sigs = data[csf_mask]
     file_csf = os.path.join(os.getcwd(), 'csf_signals.npy')
     np.save(file_csf, csf_sigs)
     del csf_sigs
-
 
     try:
         gm_seg = nb.load(gm_seg_file).get_data().astype('float64')
@@ -130,13 +130,12 @@ def extract_tissue_data(data_file,
     if not safe_shape(data, gm_seg):
         raise ValueError('Spatial dimensions for data, gray matter segment do not match')
 
-
     gm_mask = erode_mask(gm_seg > gm_threshold)
+    #gm_mask =gm_seg.astype('bool')
     gm_sigs = data[gm_mask]
     file_gm = os.path.join(os.getcwd(), 'gm_signals.npy')
     np.save(file_gm, gm_sigs)
     del gm_sigs
-
 
 
     nii = nb.load(wm_seg_file)
@@ -331,40 +330,42 @@ def calc_residuals(subject,
 
 
 
-
 def create_residuals_wf(name):
-
-    '''
-    inputs
-        inputnode.func_file
-        inputnode.wm_mask
-        inputnode.gm_mask
-        inputnode.csf_mask
-        inputnode.motion_pars
-        inputnode.selector
-        inputnode.compcor_ncomponents
-    outputs
-        outputnode.residual
-        outputnode.regressor_csv
-    '''
 
     flow = Workflow(name=name)
     inputnode = Node(util.IdentityInterface(fields=['func_preproc',
-                                                    'func_smoothed',
+                                                    'func_preproc_no_aroma',
                                                     'wm_mask',
                                                     'gm_mask',
                                                     'csf_mask',
+                                                    'ventricles_mask_file',
                                                     'motion_pars',
                                                     'compcor_ncomponents',
-                                                    'subject_id']),
+                                                    'subject_id',
+                                                    'mni2anat_warp',
+                                                    'anat2func_aff']),
                 name = 'inputnode')
     outputnode = Node(util.IdentityInterface(fields=['residual',
-                                                     'regressors',]),
+                                                     'regressors',
+                                                     'residual_no_aroma',
+                                                     'regresssors_no_aroma']),
                 name = 'outputnode')
 
-    ##########################################################################################################################
-                                                  # Extract Tissue Signals  #
-    ##########################################################################################################################
+    ventricles_func = Node(interface =fsl.ApplyWarp(), name = 'ventricles2func')
+    ventricles_func.inputs.in_file = '/scr/sambesi1/workspace/Projects/GluREST/denoise/HarvardOxford-lateral-ventricles-thr25-2mm.nii.gz'
+	
+
+    ventricles_bin = Node(interface=fsl.Threshold(),name= 'ventricles_func_bin')
+    ventricles_bin.inputs.thresh=0.1
+    ventricles_bin.inputs.args='-bin'
+
+
+    flow.connect(inputnode,       'func_preproc',                 ventricles_func,   'ref_file'    )
+    flow.connect(inputnode,       'mni2anat_warp',                ventricles_func,   'field_file'  )
+    flow.connect(inputnode,       'anat2func_aff',                ventricles_func,   'premat'      )
+    flow.connect(ventricles_func,  'out_file',                    ventricles_bin,   'in_file'      )
+
+
     extract_tissue = Node(util.Function(input_names   =[ 'data_file',
                                                          'ventricles_mask_file',
                                                          'wm_seg_file',
@@ -375,60 +376,49 @@ def create_residuals_wf(name):
                                                          'file_gm'],
                                          function     =extract_tissue_data),
                         name = 'extract_func_tissues')
-    extract_tissue.inputs.ventricles_mask_file = '/scr/sambesi1/workspace/Projects/GluREST/denoise/HarvardOxford-lateral-ventricles-thr25-2mm.nii.gz'
-
-
 
     flow.connect(inputnode,          'wm_mask',                 extract_tissue,   'wm_seg_file'  )
     flow.connect(inputnode,          'gm_mask',                 extract_tissue,   'gm_seg_file'  )
     flow.connect(inputnode,          'csf_mask',                extract_tissue,   'csf_seg_file')
     flow.connect(inputnode,          'func_preproc',            extract_tissue,   'data_file'    )
+    flow.connect(ventricles_bin,     'out_file',                extract_tissue,   'ventricles_mask_file')
 
 
-    ##########################################################################################################################
-                                                   # Detrend  + Motion  + Compcor #
-    ##########################################################################################################################
 
-    dt_mc_cc  = Node(util.Function(input_names   =  ['subject','selector','wm_sig_file','csf_sig_file','gm_sig_file','motion_file',
+    # NUISANCE REGRSSION AROMA DENOISED FILE
+
+    nuisance  = Node(util.Function(input_names   =  ['subject','selector','wm_sig_file','csf_sig_file','gm_sig_file','motion_file',
                                                      'compcor_ncomponents'],
-                                   output_names  = ['residual_file', 'regressors_file'],
-                                   function      = calc_residuals),
-                                   name          = 'residuals_dt_mc_cc')
-    dt_mc_cc.inputs.selector = {'compcor' : True , 'wm'     : False , 'csf'    : False , 'gm'        : False, 'global' : False,
-                                'pc1'     : False , 'motion' : True , 'linear' : True , 'quadratic' : True}
-
-    flow.connect(extract_tissue,     'file_wm',                 dt_mc_cc,    'wm_sig_file'  )
-    flow.connect(extract_tissue,     'file_csf',                dt_mc_cc,    'csf_sig_file' )
-    flow.connect(extract_tissue,     'file_gm',                 dt_mc_cc,    'gm_sig_file'  )
-    flow.connect(inputnode,          'func_smoothed',           dt_mc_cc,    'subject'      )
-    flow.connect(inputnode,          'motion_pars',             dt_mc_cc,    'motion_file'  )
-    flow.connect(inputnode,          'compcor_ncomponents',     dt_mc_cc,    'compcor_ncomponents' )
-    flow.connect(dt_mc_cc,           'residual_file',           outputnode,  'residual'    )
-    flow.connect(dt_mc_cc,           'regressors_file',         outputnode,  'regressors'    )
-
-
-    return flow
+                                   output_names  =  ['residual_file', 'regressors_file'],
+                                   function      =   calc_residuals),
+                                   name          =   'residuals_dt_mc_cc_aroma')
+    nuisance.inputs.selector = {'compcor' : True  , 'motion' : True  , 'linear' : True  , 'quadratic' : True,
+                                'wm'      : False , 'csf'    : False , 'gm'     : False , 'global'    : False,  'pc1'     : False }
+    flow.connect(extract_tissue,     'file_wm',                 nuisance,    'wm_sig_file'         )
+    flow.connect(extract_tissue,     'file_csf',                nuisance,    'csf_sig_file'        )
+    flow.connect(extract_tissue,     'file_gm',                 nuisance,    'gm_sig_file'         )
+    flow.connect(inputnode,          'func_preproc',            nuisance,    'subject'             )
+    flow.connect(inputnode,          'motion_pars',             nuisance,    'motion_file'         )
+    flow.connect(inputnode,          'compcor_ncomponents',     nuisance,    'compcor_ncomponents' )
+    flow.connect(nuisance,           'residual_file',           outputnode,  'residual'            )
+    flow.connect(nuisance,           'regressors_file',         outputnode,  'regressors'          )
 
 
-def smooth_data():
-    from nipype.pipeline.engine import Node, Workflow
-    import nipype.interfaces.utility as util
-    import nipype.interfaces.fsl as fsl
+    # NUISANCE REGRSSION ON Non AROMA FILE
 
-    flow        = Workflow('func2mni_preprocessed_fwhm')
-
-    inputnode   = Node(util.IdentityInterface(fields=['func_data']),
-                       name = 'inputnode')
-
-    outputnode  =  Node(util.IdentityInterface(fields=['func_smoothed']),
-                       name = 'outputnode')
-
-    smooth      = Node(interface=fsl.Smooth(), name='func_smooth_fwhm_4')
-    smooth.inputs.fwhm                 = 6.0
-    smooth.terminal_output             = 'file'
-
-    flow.connect(inputnode, 'func_data'      , smooth      , 'in_file'    )
-    flow.connect(smooth,    'smoothed_file'  , outputnode  , 'func_smoothed'   )
-
-
+    no_aroma  = Node(util.Function(input_names   =  ['subject','selector','wm_sig_file','csf_sig_file','gm_sig_file','motion_file',
+                                                     'compcor_ncomponents'],
+                                   output_names  =  ['residual_file', 'regressors_file'],
+                                   function       =   calc_residuals),
+                                   name          =   'residuals_dt_mc_cc')
+    no_aroma.inputs.selector = {'compcor' : True  , 'motion' : True  , 'linear' : True  , 'quadratic' : True,
+                                'wm'      : False , 'csf'    : False , 'gm'     : False , 'global'    : False,  'pc1'     : False }
+    flow.connect(extract_tissue,     'file_wm',                 no_aroma,    'wm_sig_file'         )
+    flow.connect(extract_tissue,     'file_csf',                no_aroma,    'csf_sig_file'        )
+    flow.connect(extract_tissue,     'file_gm',                 no_aroma,    'gm_sig_file'         )
+    flow.connect(inputnode,          'func_preproc_no_aroma',   no_aroma,    'subject'             )
+    flow.connect(inputnode,          'motion_pars',             no_aroma,    'motion_file'         )
+    flow.connect(inputnode,          'compcor_ncomponents',     no_aroma,    'compcor_ncomponents' )
+    flow.connect(no_aroma,           'residual_file',           outputnode,  'residual_no_aroma'    )
+    flow.connect(no_aroma,           'regressors_file',         outputnode,  'regresssors_no_aroma' )
     return flow
