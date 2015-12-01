@@ -59,11 +59,11 @@ def scrub_data(population, workspace_dir):
             #print subject,'-----> GOOD FRAMES =', in_frames
 
 
-            if len(in_frames) > 100:
+            if len(in_frames) > 130:
                 print '..........Scrubbing frames above FD=0.2 for subject [ %s ]' %subject
                 print '..........Subject has %s good frames' % len(in_frames)
                 print '...........taking first 100 good frames'
-                frames = str(in_frames[0:100]).replace(" ","")
+                frames = str(in_frames[0:130]).replace(" ","")
 
                 # SCRUB DATA
                 pproc_2mm  = os.path.join(subject_dir , 'functional_MNI2mm_brain_preproc_FWHM_AROMA_residual_bp/rest_pproc.nii')
@@ -74,7 +74,13 @@ def scrub_data(population, workspace_dir):
             else:
                 print '**** Subject [ %s ]  has less than 100 frames with FD below the 0.2mm threshold'%subject
 
+        scrub_subs = []
+        for subject in population:
+            if os.path.isfile( os.path.join(workspace_dir, 'GluConnectivity', subject, 'functional_MNI2mm_brain_preproc_FWHM_AROMA_residual_bp/rest_pproc_scrubbed.nii')):
+                scrub_subs.append(subject)
+        print scrub_subs
 
+scrub_data(['BM8X'], output_dir_a)
 scrub_data(controls_a, output_dir_a)
 scrub_data(patients_a, output_dir_a)
 scrub_data(patients_b, output_dir_b)
